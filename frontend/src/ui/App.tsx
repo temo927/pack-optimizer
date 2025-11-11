@@ -1,5 +1,19 @@
+/**
+ * Pack Optimizer Frontend Application
+ * 
+ * This React application provides a user interface for the pack optimizer API.
+ * It allows users to:
+ * - Manage pack sizes (add/remove)
+ * - Calculate optimal pack distributions for order amounts
+ * - View detailed breakdowns of pack combinations
+ * 
+ * The UI uses inline styles with a Deep Navy/Indigo color scheme and provides
+ * real-time validation, error handling, and user feedback.
+ */
+
 import React, { useMemo, useState } from 'react'
 
+// API base URL - uses environment variable or defaults to localhost
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
 const styles = {
@@ -221,6 +235,10 @@ const styles = {
   },
 }
 
+/**
+ * Main App component - root component of the application.
+ * Renders the header and two main sections: PackSizes and Calculator.
+ */
 export default function App() {
   return (
     <div style={styles.app}>
@@ -236,6 +254,15 @@ export default function App() {
   )
 }
 
+/**
+ * Custom hook for managing active pack sizes.
+ * Fetches pack sizes from the API on mount and provides a refresh function.
+ * 
+ * @returns Object containing:
+ *   - sizes: Current array of pack sizes
+ *   - refresh: Function to refetch sizes from API
+ *   - setSizes: Function to update sizes directly (for testing)
+ */
 function useActiveSizes() {
   const [sizes, setSizes] = React.useState<number[]>([])
   const fetchSizes = React.useCallback(async () => {
@@ -247,13 +274,28 @@ function useActiveSizes() {
   return { sizes, refresh: fetchSizes, setSizes }
 }
 
+/**
+ * PackSizes component - manages pack size configuration.
+ * Allows users to:
+ * - View current pack sizes as interactive chips
+ * - Add new pack sizes (one at a time)
+ * - Delete pack sizes by clicking the × button on each chip
+ * 
+ * Validates input: pack sizes must be positive integers <= 10,000.
+ * Shows success/error messages inline below the input.
+ */
 function PackSizes() {
   const { sizes, refresh } = useActiveSizes()
-  const [editing, setEditing] = useState<string>('')
-  const [msg, setMsg] = useState<{ kind:'ok'|'err'; text:string }|null>(null)
-  const [hoverChip, setHoverChip] = useState<number | null>(null)
-  const [hoverDelete, setHoverDelete] = useState<number | null>(null)
+  const [editing, setEditing] = useState<string>('') // Current input value
+  const [msg, setMsg] = useState<{ kind:'ok'|'err'; text:string }|null>(null) // Status message
+  const [hoverChip, setHoverChip] = useState<number | null>(null) // Hover state for chips
+  const [hoverDelete, setHoverDelete] = useState<number | null>(null) // Hover state for delete buttons
 
+  /**
+   * Adds a new pack size to the active set.
+   * Validates the input, checks for duplicates, and sends PUT request to API.
+   * Updates the UI with success/error feedback.
+   */
   const addOne = async () => {
     const val = parseInt(editing, 10)
     if (!Number.isFinite(val) || val <= 0) {
@@ -282,6 +324,14 @@ function PackSizes() {
     setEditing('')
   }
 
+  /**
+   * Removes a pack size from the active set.
+   * Sends DELETE request to API and refreshes the pack sizes list.
+   * Prevents event propagation to avoid unintended side effects.
+   * 
+   * @param val - The pack size value to remove
+   * @param e - Optional mouse event (used to prevent default behavior)
+   */
   const remove = async (val:number, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault()
@@ -363,14 +413,28 @@ function PackSizes() {
   )
 }
 
+/**
+ * Calculator component - calculates optimal pack distribution.
+ * Allows users to:
+ * - Enter an order amount
+ * - Calculate optimal pack combination using active pack sizes
+ * - View detailed breakdown with total items, overage, and pack quantities
+ * 
+ * Validates input: amount must be positive integer <= 1,000,000.
+ * Shows loading state during calculation and error messages on failure.
+ */
 function Calculator() {
-  const [amount, setAmount] = useState('500000')
-  const [result, setResult] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [inputFocused, setInputFocused] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const MAX_AMOUNT = 1_000_000
+  const [amount, setAmount] = useState('500000') // Order amount input (defaults to edge case value)
+  const [result, setResult] = useState<any>(null) // Calculation result from API
+  const [loading, setLoading] = useState(false) // Loading state during API call
+  const [inputFocused, setInputFocused] = useState(false) // Input focus state for styling
+  const [error, setError] = useState<string | null>(null) // Error message state
+  const MAX_AMOUNT = 1_000_000 // Maximum allowed order amount
 
+  /**
+   * Performs pack calculation by sending POST request to API.
+   * Validates amount before sending, handles errors, and updates UI state.
+   */
   const calc = async () => {
     if (!amount) {
       return
@@ -463,8 +527,19 @@ function Calculator() {
   )
 }
 
+/**
+ * Result component - displays calculation results.
+ * Shows:
+ * - Total items, overage, and total packs as statistics
+ * - Detailed breakdown table with pack sizes and quantities
+ * 
+ * Sorts breakdown by pack size (descending) for better readability.
+ * 
+ * @param res - Calculation result object from API
+ */
 function Result({ res }:{ res:any }) {
-  const [hoverRow, setHoverRow] = useState<string | null>(null)
+  const [hoverRow, setHoverRow] = useState<string | null>(null) // Hover state for table rows
+  // Sort breakdown entries by pack size (descending) for display
   const entries = Object.entries(res.breakdown || {}).sort(([a], [b]) => parseInt(b) - parseInt(a))
   
   return (
