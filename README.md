@@ -61,32 +61,28 @@ cd pack-optimizer
 
 # Start all services
 docker compose up --build
-
-# Services will be available at:
-# - Frontend: http://localhost:5173
-# - API: http://localhost:8080/api/v1
-# - PostgreSQL: localhost:5432
-# - Redis: localhost:6379
 ```
+
+Services will be available at:
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **API**: [http://localhost:8080/api/v1](http://localhost:8080/api/v1)
+- **PostgreSQL**: localhost:5432
+- **Redis**: localhost:6379
 
 The database will automatically:
 - Create the schema on first startup
 - Seed initial pack sizes: [250, 500, 1000, 2000, 5000]
 
-### Running Tests in Docker
+### Running Tests
 
-Run unit tests in the Docker environment:
+Run unit and integration tests:
 
 ```bash
 # Run all unit tests
-docker compose exec api go test ./...
+make test
 
 # Run integration tests
-docker compose exec api go test -tags=integration ./internal/integration/...
-
-# Or use Makefile commands
-make test-docker    # Run unit tests in Docker
-make itest-docker   # Run integration tests in Docker
+make itest
 ```
 
 ## Features
@@ -151,14 +147,14 @@ pack-optimizer/
 ## API Documentation
 
 ### Base URL
-```
-http://localhost:8080/api/v1
-```
+[http://localhost:8080/api/v1](http://localhost:8080/api/v1)
 
 ### Endpoints
 
 #### GET `/packs`
 Get current active pack sizes.
+
+**URL:** [http://localhost:8080/api/v1/packs](http://localhost:8080/api/v1/packs)
 
 **Response:**
 ```json
@@ -169,6 +165,8 @@ Get current active pack sizes.
 
 #### PUT `/packs`
 Replace all pack sizes with a new set.
+
+**URL:** [http://localhost:8080/api/v1/packs](http://localhost:8080/api/v1/packs)
 
 **Request:**
 ```json
@@ -187,7 +185,7 @@ Replace all pack sizes with a new set.
 #### DELETE `/packs/{size}`
 Remove a specific pack size.
 
-**Example:** `DELETE /packs/250`
+**Example:** `DELETE /packs/250` → [http://localhost:8080/api/v1/packs/250](http://localhost:8080/api/v1/packs/250)
 
 **Response:**
 ```json
@@ -198,6 +196,8 @@ Remove a specific pack size.
 
 #### POST `/calculate`
 Calculate optimal pack distribution.
+
+**URL:** [http://localhost:8080/api/v1/calculate](http://localhost:8080/api/v1/calculate)
 
 **Request:**
 ```json
@@ -232,67 +232,9 @@ Or with custom pack sizes:
 #### GET `/healthz`
 Health check endpoint.
 
+**URL:** [http://localhost:8080/api/v1/healthz](http://localhost:8080/api/v1/healthz)
+
 **Response:** `200 OK`
-
-## Testing
-
-### Unit Tests
-
-Run all unit tests:
-```bash
-cd backend
-go test ./...
-```
-
-Or in Docker:
-```bash
-docker compose exec api go test ./...
-# Or use: make test-docker
-```
-
-**Test Coverage:**
-- **HTTP Handlers** (`internal/adapters/http/handlers_test.go`):
-  - Pack size CRUD operations
-  - Calculation endpoint
-  - Input validation
-  - Error handling
-  - Edge cases (deleting last pack, invalid inputs)
-
-- **Calculator Service** (`internal/app/calculator/service_test.go`):
-  - Standard pack size scenarios
-  - Edge cases (500,000 items with [23, 31, 53])
-  - Boundary conditions
-  - Optimization rules verification
-  - Invalid input handling
-
-### Integration Tests
-
-Run integration tests (requires Docker):
-```bash
-cd backend
-go test -tags=integration ./internal/integration/...
-```
-
-Or in Docker:
-```bash
-docker compose exec api go test -tags=integration ./internal/integration/...
-# Or use: make itest-docker
-```
-
-**Test Coverage:**
-- PostgreSQL repository operations
-- Database connectivity
-- Data persistence
-
-### Test Scenarios
-
-See `TEST_SCENARIOS.md` for comprehensive test cases covering:
-- Standard scenarios
-- Edge cases
-- Boundary conditions
-- Optimization rules
-- Invalid inputs
-- Performance considerations
 
 ## Algorithm: Dynamic Programming
 
@@ -340,9 +282,7 @@ This demonstrates the algorithm correctly handles large amounts and non-standard
 ```bash
 make up            # Start all services with Docker Compose
 make down          # Stop services and remove volumes
-make test          # Run all unit tests (requires Go installed locally)
-make itest         # Run integration tests (requires Go installed locally)
-make test-docker   # Run unit tests in Docker container
-make itest-docker  # Run integration tests in Docker container
+make test          # Run all unit tests
+make itest         # Run integration tests
 make api-compile   # Compile the Go API binary
 ```
