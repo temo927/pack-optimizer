@@ -120,7 +120,7 @@ func (a *packSvcAdapter) deletePack(w http.ResponseWriter, r *http.Request) {
 	// Update pack sizes with the filtered list
 	sizes, err := a.svc.ReplaceActive(r.Context(), next)
 	if err != nil {
-		http.Error(w, "failed to update sizes", http.StatusInternalServerError)
+		a.errorHandler.HandleError(w, r, ErrDatabaseError.WithDetails("operation", "replace_pack_sizes"))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sizes": sizes})

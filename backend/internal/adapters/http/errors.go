@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
-	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // ErrorCode represents a machine-readable error code.
@@ -19,18 +20,11 @@ const (
 	// Client errors (4xx)
 	ErrCodeInvalidInput     ErrorCode = "INVALID_INPUT"
 	ErrCodeValidationFailed ErrorCode = "VALIDATION_FAILED"
-	ErrCodeNotFound         ErrorCode = "NOT_FOUND"
-	ErrCodeConflict         ErrorCode = "CONFLICT"
-	ErrCodeTooManyRequests  ErrorCode = "TOO_MANY_REQUESTS"
-	ErrCodeRequestTooLarge  ErrorCode = "REQUEST_TOO_LARGE"
-	ErrCodeForbidden        ErrorCode = "FORBIDDEN"
 
 	// Server errors (5xx)
-	ErrCodeInternalError      ErrorCode = "INTERNAL_ERROR"
-	ErrCodeServiceUnavailable ErrorCode = "SERVICE_UNAVAILABLE"
-	ErrCodeDatabaseError      ErrorCode = "DATABASE_ERROR"
-	ErrCodeCacheError         ErrorCode = "CACHE_ERROR"
-	ErrCodeCalculationError   ErrorCode = "CALCULATION_ERROR"
+	ErrCodeInternalError    ErrorCode = "INTERNAL_ERROR"
+	ErrCodeDatabaseError     ErrorCode = "DATABASE_ERROR"
+	ErrCodeCalculationError  ErrorCode = "CALCULATION_ERROR"
 )
 
 // APIError represents a structured API error response.
@@ -73,14 +67,11 @@ func NewAPIError(code ErrorCode, message string, statusCode int) *APIError {
 
 // Common error constructors
 var (
-	ErrInvalidInput       = NewAPIError(ErrCodeInvalidInput, "Invalid input provided", http.StatusBadRequest)
-	ErrValidationFailed   = NewAPIError(ErrCodeValidationFailed, "Validation failed", http.StatusBadRequest)
-	ErrNotFound           = NewAPIError(ErrCodeNotFound, "Resource not found", http.StatusNotFound)
-	ErrInternalError      = NewAPIError(ErrCodeInternalError, "An internal error occurred", http.StatusInternalServerError)
-	ErrDatabaseError      = NewAPIError(ErrCodeDatabaseError, "Database operation failed", http.StatusInternalServerError)
-	ErrCacheError         = NewAPIError(ErrCodeCacheError, "Cache operation failed", http.StatusInternalServerError)
-	ErrServiceUnavailable = NewAPIError(ErrCodeServiceUnavailable, "Service temporarily unavailable", http.StatusServiceUnavailable)
-	ErrCalculationError   = NewAPIError(ErrCodeCalculationError, "Calculation failed", http.StatusInternalServerError)
+	ErrInvalidInput     = NewAPIError(ErrCodeInvalidInput, "Invalid input provided", http.StatusBadRequest)
+	ErrValidationFailed = NewAPIError(ErrCodeValidationFailed, "Validation failed", http.StatusBadRequest)
+	ErrInternalError    = NewAPIError(ErrCodeInternalError, "An internal error occurred", http.StatusInternalServerError)
+	ErrDatabaseError    = NewAPIError(ErrCodeDatabaseError, "Database operation failed", http.StatusInternalServerError)
+	ErrCalculationError = NewAPIError(ErrCodeCalculationError, "Calculation failed", http.StatusInternalServerError)
 )
 
 // ErrorHandler handles errors and writes structured error responses.
@@ -122,15 +113,15 @@ func (h *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, err e
 		)
 	}
 
-	// Add request ID if available
-	if requestID := r.Header.Get("X-Request-ID"); requestID != "" {
-		apiErr.WithRequestID(requestID)
+	// Add request ID from context if available
+	if requestID := middleware.GetReqID(r.Context()); requestID != "" {
+		apiErr = apiErr.WithRequestID(requestID)
 	}
 
 	// Add stack trace in development mode
 	if h.development && apiErr.StatusCode >= 500 {
 		stack := string(debug.Stack())
-		apiErr.WithDetails("stack_trace", strings.Split(stack, "\n"))
+		apiErr = apiErr.WithDetails("stack_trace", strings.Split(stack, "\n"))
 	}
 
 	// Write error response
@@ -139,9 +130,9 @@ func (h *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, err e
 
 // HandleAPIError writes an APIError directly to the response.
 func (h *ErrorHandler) HandleAPIError(w http.ResponseWriter, r *http.Request, apiErr *APIError) {
-	// Add request ID if available
-	if requestID := r.Header.Get("X-Request-ID"); requestID != "" {
-		apiErr.WithRequestID(requestID)
+	// Add request ID from context if available
+	if requestID := middleware.GetReqID(r.Context()); requestID != "" {
+		apiErr = apiErr.WithRequestID(requestID)
 	}
 
 	// Log error with structured logging
@@ -158,7 +149,7 @@ func (h *ErrorHandler) HandleAPIError(w http.ResponseWriter, r *http.Request, ap
 	// Add stack trace in development mode
 	if h.development && apiErr.StatusCode >= 500 {
 		stack := string(debug.Stack())
-		apiErr.WithDetails("stack_trace", strings.Split(stack, "\n"))
+		apiErr = apiErr.WithDetails("stack_trace", strings.Split(stack, "\n"))
 	}
 
 	h.writeErrorResponse(w, apiErr)
@@ -208,27 +199,8 @@ func RecoveryMiddleware(errorHandler *ErrorHandler) func(next http.Handler) http
 }
 
 // RequestIDMiddleware adds a request ID to the request context and response headers.
+// Uses chi's middleware.RequestID for proper context handling.
 func RequestIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Header.Get("X-Request-ID")
-		if requestID == "" {
-			// Generate a simple request ID
-			requestID = generateRequestID()
-		}
-
-		// Add to response headers
-		w.Header().Set("X-Request-ID", requestID)
-
-		// Add to request context
-		r.Header.Set("X-Request-ID", requestID)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-// generateRequestID generates a simple request ID.
-func generateRequestID() string {
-	// Using timestamp for uniqueness
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return middleware.RequestID(next)
 }
 
