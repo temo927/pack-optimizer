@@ -237,12 +237,3 @@
 
 ### Low Priority
 - Tests in sections 11, 12
-
-## Automated Test Scripts
-
-Consider creating automated tests for:
-- Unit tests for calculator algorithm
-- Integration tests for API endpoints
-- E2E tests for UI workflows
-- Performance benchmarks
-
