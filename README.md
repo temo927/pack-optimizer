@@ -13,7 +13,6 @@ We've implemented a **hexagonal architecture** to ensure clean separation of con
 
 - **Application Layer** (`internal/app/`): Implements domain interfaces with business logic.
   - **Calculator Service**: Uses dynamic programming (DP) to solve the pack optimization problem efficiently.
-  - **Packs Service**: Manages pack size operations with caching for performance.
   - **Why**: Separates business rules from infrastructure, enabling unit testing without external dependencies.
 
 - **Adapters Layer** (`internal/adapters/`): Implements domain ports with concrete technologies.
