@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
 	"github.com/temo/pack-optimizer/backend/internal/domain"
 )
 
@@ -24,15 +23,16 @@ type PacksService interface {
 // packSvcAdapter is the HTTP adapter that bridges HTTP requests to domain services.
 // It implements the adapter pattern from hexagonal architecture.
 type packSvcAdapter struct {
-	svc  PacksService      // Service for managing pack sizes
-	calc domain.Calculator // Service for calculating optimal pack distributions
+	svc          PacksService      // Service for managing pack sizes
+	calc         domain.Calculator // Service for calculating optimal pack distributions
+	errorHandler *ErrorHandler     // Error handler for structured error responses
 }
 
 // NewRouter creates and configures a new HTTP router with all API endpoints.
 // It sets up routes for pack management and calculation operations.
-func NewRouter(packsSvc PacksService, calc domain.Calculator) chi.Router {
+func NewRouter(packsSvc PacksService, calc domain.Calculator, errorHandler *ErrorHandler) chi.Router {
 	r := chi.NewRouter()
-	a := &packSvcAdapter{svc: packsSvc, calc: calc}
+	a := &packSvcAdapter{svc: packsSvc, calc: calc, errorHandler: errorHandler}
 	
 	// Root endpoint - returns API information
 	r.Get("/", a.getRoot)
@@ -72,7 +72,7 @@ func (a *packSvcAdapter) getRoot(w http.ResponseWriter, r *http.Request) {
 func (a *packSvcAdapter) getPacks(w http.ResponseWriter, r *http.Request) {
 	sizes, err := a.svc.GetActiveSizes(r.Context())
 	if err != nil {
-		http.Error(w, "failed to load sizes", http.StatusInternalServerError)
+		a.errorHandler.HandleError(w, r, ErrDatabaseError.WithDetails("operation", "get_pack_sizes"))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sizes": sizes})
@@ -85,21 +85,21 @@ func (a *packSvcAdapter) deletePack(w http.ResponseWriter, r *http.Request) {
 	// Extract size from URL path parameter
 	sizeStr := chi.URLParam(r, "size")
 	if sizeStr == "" {
-		http.Error(w, "size required", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrInvalidInput.WithDetails("field", "size").WithDetails("reason", "size parameter is required"))
 		return
 	}
 	
 	// Validate and parse the size parameter
 	val, err := strconv.Atoi(sizeStr)
 	if err != nil || val <= 0 {
-		http.Error(w, "invalid size", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.WithDetails("field", "size").WithDetails("value", sizeStr).WithDetails("reason", "must be a positive integer"))
 		return
 	}
 	
 	// Get current pack sizes
 	curr, err := a.svc.GetActiveSizes(r.Context())
 	if err != nil {
-		http.Error(w, "failed to load sizes", http.StatusInternalServerError)
+		a.errorHandler.HandleError(w, r, ErrDatabaseError.WithDetails("operation", "get_pack_sizes"))
 		return
 	}
 	
@@ -137,20 +137,28 @@ type putPacksReq struct {
 func (a *packSvcAdapter) putPacks(w http.ResponseWriter, r *http.Request) {
 	var req putPacksReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrInvalidInput.WithDetails("field", "body").WithDetails("reason", "invalid JSON format"))
 		return
 	}
 	
 	// Allow empty arrays - validation happens at calculation time
 	// Validate pack sizes: must be positive and <= 10,000
 	const maxPackSize = 10_000
-	for _, s := range req.Sizes {
+	for i, s := range req.Sizes {
 		if s <= 0 {
-			http.Error(w, "pack sizes must be positive", http.StatusBadRequest)
+			a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.
+				WithDetails("field", "sizes").
+				WithDetails("index", i).
+				WithDetails("value", s).
+				WithDetails("reason", "pack sizes must be positive"))
 			return
 		}
 		if s > maxPackSize {
-			http.Error(w, "pack sizes cannot exceed 10,000 items", http.StatusBadRequest)
+			a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.
+				WithDetails("field", "sizes").
+				WithDetails("index", i).
+				WithDetails("value", s).
+				WithDetails("reason", "pack sizes cannot exceed 10,000 items"))
 			return
 		}
 	}
@@ -158,8 +166,7 @@ func (a *packSvcAdapter) putPacks(w http.ResponseWriter, r *http.Request) {
 	// Replace all pack sizes with the new set
 	sizes, err := a.svc.ReplaceActive(r.Context(), req.Sizes)
 	if err != nil {
-		log.Error().Err(err).Msg("replace sizes failed")
-		http.Error(w, "failed to update sizes", http.StatusInternalServerError)
+		a.errorHandler.HandleError(w, r, ErrDatabaseError.WithDetails("operation", "replace_pack_sizes"))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sizes": sizes})
@@ -178,20 +185,20 @@ type calcReq struct {
 func (a *packSvcAdapter) postCalculate(w http.ResponseWriter, r *http.Request) {
 	var req calcReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrInvalidInput.WithDetails("field", "body").WithDetails("reason", "invalid JSON format"))
 		return
 	}
 	
 	// Validate amount is positive
 	if req.Amount <= 0 {
-		http.Error(w, "amount must be positive", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.WithDetails("field", "amount").WithDetails("value", req.Amount).WithDetails("reason", "amount must be positive"))
 		return
 	}
 	
 	// Validate amount doesn't exceed maximum limit
 	const maxAmount = 1_000_000
 	if req.Amount > maxAmount {
-		http.Error(w, "amount cannot exceed 1,000,000 items", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.WithDetails("field", "amount").WithDetails("value", req.Amount).WithDetails("reason", "amount cannot exceed 1,000,000 items"))
 		return
 	}
 	
@@ -201,21 +208,21 @@ func (a *packSvcAdapter) postCalculate(w http.ResponseWriter, r *http.Request) {
 		var err error
 		sizes, err = a.svc.GetActiveSizes(r.Context())
 		if err != nil {
-			http.Error(w, "failed to load sizes", http.StatusInternalServerError)
+			a.errorHandler.HandleError(w, r, ErrDatabaseError.WithDetails("operation", "get_pack_sizes"))
 			return
 		}
 	}
 	
 	// Ensure at least one pack size is configured
 	if len(sizes) == 0 {
-		http.Error(w, "no pack sizes configured", http.StatusBadRequest)
+		a.errorHandler.HandleAPIError(w, r, ErrValidationFailed.WithDetails("field", "sizes").WithDetails("reason", "no pack sizes configured"))
 		return
 	}
 	
 	// Perform the calculation
 	res, err := a.calc.Compute(r.Context(), req.Amount, sizes)
 	if err != nil {
-		http.Error(w, "calculation failed", http.StatusInternalServerError)
+		a.errorHandler.HandleError(w, r, ErrCalculationError.WithDetails("amount", req.Amount))
 		return
 	}
 	

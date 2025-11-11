@@ -4,12 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/temo/pack-optimizer/backend/internal/domain"
 )
+
+// newTestErrorHandler creates an error handler for testing.
+func newTestErrorHandler() *ErrorHandler {
+	return NewErrorHandler(slog.Default(), true)
+}
 
 type mockPacksService struct {
 	sizes []int
@@ -46,7 +52,7 @@ func (m *mockCalculator) Compute(ctx context.Context, amount int, sizes []int) (
 func TestGetPacks(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500, 1000}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	req := httptest.NewRequest("GET", "/packs", nil)
 	w := httptest.NewRecorder()
@@ -71,7 +77,7 @@ func TestGetPacks(t *testing.T) {
 func TestPutPacks(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	body := map[string][]int{"sizes": {250, 500, 1000}}
 	jsonBody, _ := json.Marshal(body)
@@ -93,7 +99,7 @@ func TestPutPacks(t *testing.T) {
 func TestPutPacks_InvalidInput(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	// Test with empty sizes - should succeed now
 	body := map[string][]int{"sizes": {}}
@@ -138,7 +144,7 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 func TestDeletePack(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500, 1000}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	req := httptest.NewRequest("DELETE", "/packs/500", nil)
 	w := httptest.NewRecorder()
@@ -165,7 +171,7 @@ func TestDeletePack(t *testing.T) {
 func TestDeletePack_LastOne(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	req := httptest.NewRequest("DELETE", "/packs/250", nil)
 	w := httptest.NewRecorder()
@@ -186,7 +192,7 @@ func TestDeletePack_LastOne(t *testing.T) {
 func TestCalculate_NoPackSizes(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	body := map[string]int{"amount": 100}
 	jsonBody, _ := json.Marshal(body)
@@ -200,8 +206,19 @@ func TestCalculate_NoPackSizes(t *testing.T) {
 		t.Errorf("Expected status 400 for calculation with no pack sizes, got %d", w.Code)
 	}
 
-	if w.Body.String() != "no pack sizes configured\n" {
-		t.Errorf("Expected error message 'no pack sizes configured', got %q", w.Body.String())
+	// Parse JSON error response
+	var errResp APIError
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Errorf("Expected JSON error response, got %q", w.Body.String())
+		return
+	}
+
+	if errResp.Code != ErrCodeValidationFailed {
+		t.Errorf("Expected error code VALIDATION_FAILED, got %s", errResp.Code)
+	}
+
+	if errResp.Details["reason"] != "no pack sizes configured" {
+		t.Errorf("Expected error reason 'no pack sizes configured', got %v", errResp.Details)
 	}
 }
 
@@ -216,7 +233,7 @@ func TestCalculate(t *testing.T) {
 			Breakdown:  map[int]int{500: 1},
 		},
 	}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	body := map[string]int{"amount": 263}
 	jsonBody, _ := json.Marshal(body)
@@ -246,7 +263,7 @@ func TestCalculate(t *testing.T) {
 func TestCalculate_InvalidAmount(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	// Test with zero amount
 	body := map[string]int{"amount": 0}
@@ -299,7 +316,7 @@ func TestCalculate_WithCustomSizes(t *testing.T) {
 			Breakdown:  map[int]int{23: 2, 31: 7, 53: 9429},
 		},
 	}
-	router := NewRouter(svc, calc)
+	router := NewRouter(svc, calc, newTestErrorHandler())
 
 	body := map[string]interface{}{
 		"amount": 500000,

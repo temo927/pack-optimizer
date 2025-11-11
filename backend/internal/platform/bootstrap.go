@@ -5,13 +5,11 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 	httpad "github.com/temo/pack-optimizer/backend/internal/adapters/http"
 	pg "github.com/temo/pack-optimizer/backend/internal/adapters/postgres"
 	redisad "github.com/temo/pack-optimizer/backend/internal/adapters/redis"
@@ -33,48 +31,45 @@ type packsServiceFacade interface {
 }
 
 // Bootstrap initializes the application by:
-// 1. Connecting to PostgreSQL with retry logic (waits for DB to be ready)
-// 2. Connecting to Redis with retry logic (waits for cache to be ready)
+// 1. Connecting to PostgreSQL with retry logic and circuit breaker
+// 2. Connecting to Redis with retry logic and circuit breaker
 // 3. Creating repository and cache adapters
 // 4. Wrapping repository with caching layer
 // 5. Creating calculator service
 // 6. Returning configured App and cleanup function
 //
-// The retry logic (30 attempts with 1 second intervals) ensures the application
-// can start even if dependencies aren't immediately available (useful in Docker Compose).
-func Bootstrap(cfg Config) (*App, func(context.Context) error) {
+// Uses exponential backoff retry and circuit breaker pattern for resilience.
+func Bootstrap(cfg Config, logger *slog.Logger) (*App, func(context.Context) error) {
 	ctx := context.Background()
 	
-	// Connect to PostgreSQL with retry logic
-	var pool *pgxpool.Pool
-	var err error
-	for i := 0; i < 30; i++ {
-		pool, err = pgxpool.New(ctx, cfg.PostgresURL)
-		if err == nil && pool != nil {
-			if err = pool.Ping(ctx); err == nil {
-				break
-			}
-		}
-		log.Warn().Err(err).Int("retry", i+1).Msg("waiting for postgres")
-		time.Sleep(1 * time.Second)
+	if logger == nil {
+		logger = slog.Default()
 	}
+	
+	// Configure retry with exponential backoff
+	retryConfig := RetryConfig{
+		MaxAttempts:       30,
+		InitialDelay:      1 * time.Second,
+		MaxDelay:          10 * time.Second,
+		BackoffMultiplier: 1.5,
+	}
+	
+	// Create circuit breakers for external dependencies
+	dbCircuitBreaker := NewCircuitBreaker(logger, 5, 30*time.Second)
+	redisCircuitBreaker := NewCircuitBreaker(logger, 5, 30*time.Second)
+	
+	// Connect to PostgreSQL with retry logic and circuit breaker
+	pool, err := ConnectPostgresWithRetry(ctx, logger, cfg.PostgresURL, retryConfig, dbCircuitBreaker)
 	if err != nil {
-		log.Fatal().Err(err).Msg("pg not ready")
+		logger.Error("postgres not ready after retries", "error", err)
+		panic(err)
 	}
 
-	// Connect to Redis with retry logic
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPass,
-		DB:       0,
-	})
-	for i := 0; i < 30; i++ {
-		if err := rdb.Ping(ctx).Err(); err == nil {
-			break
-		} else {
-			log.Warn().Err(err).Int("retry", i+1).Msg("waiting for redis")
-			time.Sleep(1 * time.Second)
-		}
+	// Connect to Redis with retry logic and circuit breaker
+	rdb, err := ConnectRedisWithRetry(ctx, logger, cfg.RedisAddr, cfg.RedisPass, retryConfig, redisCircuitBreaker)
+	if err != nil {
+		logger.Error("redis not ready after retries", "error", err)
+		panic(err)
 	}
 
 	// Create adapters
@@ -97,9 +92,14 @@ func Bootstrap(cfg Config) (*App, func(context.Context) error) {
 
 // MountRoutes registers all API routes on the provided router.
 // Routes are mounted under the /api/v1 prefix.
-func MountRoutes(r *chi.Mux, app *App) {
+func MountRoutes(r *chi.Mux, app *App, errorHandler *httpad.ErrorHandler) {
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Mount("/", httpad.NewRouter(app.PacksSvc, app.Calc))
+		// Add recovery middleware to catch panics
+		api.Use(httpad.RecoveryMiddleware(errorHandler))
+		// Add request ID middleware for tracing
+		api.Use(httpad.RequestIDMiddleware)
+		// Mount API routes
+		api.Mount("/", httpad.NewRouter(app.PacksSvc, app.Calc, errorHandler))
 	})
 }
 

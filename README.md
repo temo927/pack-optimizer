@@ -43,8 +43,30 @@ We use a **versioned, append-only** approach for pack sizes:
 ### Caching Strategy
 
 - Pack sizes are cached with version-based keys to ensure cache invalidation on updates.
-- Calculation results can be cached (infrastructure ready, not currently implemented).
 - **Why**: Reduces database load and improves API response times, especially for frequently accessed data.
+
+### Security Features
+
+The application includes production-ready security middleware:
+
+- **Rate Limiting**: IP-based rate limiting using token bucket algorithm
+  - Default: 100 requests per minute per IP
+  - Configurable via `RATE_LIMIT_RPM` and `RATE_LIMIT_BURST` environment variables
+  - Returns `429 Too Many Requests` when limit exceeded
+
+- **DDoS Protection**: Multiple layers of protection against DDoS attacks
+  - Request size limits (default: 10MB)
+  - Header size limits (default: 8KB)
+  - Suspicious request pattern detection
+  - SQL injection and XSS pattern detection
+
+- **Security Headers**: HTTP security headers on all responses
+  - `X-Frame-Options: DENY` - Prevents clickjacking
+  - `X-Content-Type-Options: nosniff` - Prevents MIME sniffing
+  - `X-XSS-Protection: 1; mode=block` - XSS protection
+  - `Content-Security-Policy` - Content security policy
+
+- **Configurable**: All security features can be enabled/disabled via environment variables
 
 ## Quick Start
 
@@ -61,13 +83,15 @@ cd pack-optimizer
 
 # Start all services
 docker compose up --build
-```
+
+# Or use Makefile
+make up
 
 Services will be available at:
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **API**: [http://localhost:8080/api/v1](http://localhost:8080/api/v1)
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
+- **Frontend**: `http://localhost:5173`
+- **API**: `http://localhost:8080/api/v1`
+- **PostgreSQL**: `localhost:5432`
+- **Redis**: `localhost:6379`
 
 The database will automatically:
 - Create the schema on first startup
@@ -84,6 +108,60 @@ make test
 # Run integration tests
 make itest
 ```
+
+### Troubleshooting
+
+#### Make Command Issues (macOS/Linux)
+
+If you get `getcwd: Operation not permitted` or `No rule to make target 'up'` error:
+
+1. **Use direct docker compose command:**
+   ```bash
+   docker compose up --build
+   ```
+
+2. **Grant Full Disk Access to Terminal (macOS only):**
+   - Go to System Settings → Privacy & Security → Full Disk Access
+   - Add Terminal (or iTerm2 if using it)
+   - Restart Terminal
+
+3. **Check directory permissions:**
+   ```bash
+   ls -la
+   ```
+   Ensure you have read/write permissions in the directory.
+
+4. **Move project if in restricted location:**
+   If the project is in Downloads or Desktop, try moving it to `~/projects/` or `/usr/local/`
+
+#### Container Issues
+
+If the API endpoint is not accessible when running in containers:
+
+1. **Check if containers are running:**
+   ```bash
+   docker compose ps
+   ```
+   All services (api, frontend, db, redis) should show "Up" status.
+
+2. **Check API logs for errors:**
+   ```bash
+   docker compose logs api
+   ```
+   Look for "HTTP server starting" message with the port number.
+
+3. **Test health endpoint:**
+   ```bash
+   curl http://localhost:8080/api/v1/healthz
+   ```
+   Should return `200 OK`.
+
+4. **Rebuild containers if needed:**
+   ```bash
+   docker compose down
+   docker compose build --no-cache
+   docker compose up
+   ```
 
 ## Features
 
@@ -143,18 +221,17 @@ pack-optimizer/
 ├── docker-compose.yml                # Local development setup
 └── README.md
 ```
-
 ## API Documentation
 
 ### Base URL
-[http://localhost:8080/api/v1](http://localhost:8080/api/v1)
+`http://localhost:8080/api/v1` (when running locally)
 
 ### Endpoints
 
 #### GET `/packs`
 Get current active pack sizes.
 
-**URL:** [http://localhost:8080/api/v1/packs](http://localhost:8080/api/v1/packs)
+**Endpoint:** `GET /api/v1/packs`
 
 **Response:**
 ```json
@@ -166,7 +243,7 @@ Get current active pack sizes.
 #### PUT `/packs`
 Replace all pack sizes with a new set.
 
-**URL:** [http://localhost:8080/api/v1/packs](http://localhost:8080/api/v1/packs)
+**Endpoint:** `PUT /api/v1/packs`
 
 **Request:**
 ```json
@@ -185,7 +262,9 @@ Replace all pack sizes with a new set.
 #### DELETE `/packs/{size}`
 Remove a specific pack size.
 
-**Example:** `DELETE /packs/250` → [http://localhost:8080/api/v1/packs/250](http://localhost:8080/api/v1/packs/250)
+**Endpoint:** `DELETE /api/v1/packs/{size}`
+
+**Example:** `DELETE /api/v1/packs/250`
 
 **Response:**
 ```json
@@ -197,7 +276,7 @@ Remove a specific pack size.
 #### POST `/calculate`
 Calculate optimal pack distribution.
 
-**URL:** [http://localhost:8080/api/v1/calculate](http://localhost:8080/api/v1/calculate)
+**Endpoint:** `POST /api/v1/calculate`
 
 **Request:**
 ```json
@@ -232,9 +311,42 @@ Or with custom pack sizes:
 #### GET `/healthz`
 Health check endpoint.
 
-**URL:** [http://localhost:8080/api/v1/healthz](http://localhost:8080/api/v1/healthz)
+**Endpoint:** `GET /api/v1/healthz`
 
 **Response:** `200 OK`
+
+### Testing with curl
+
+Here are curl commands to test all endpoints:
+
+```bash
+# 1. Health check
+curl http://localhost:8080/api/v1/healthz
+
+# 2. Get current pack sizes
+curl http://localhost:8080/api/v1/packs
+
+# 3. Replace all pack sizes
+curl -X PUT http://localhost:8080/api/v1/packs \
+  -H "Content-Type: application/json" \
+  -d '{"sizes": [250, 500, 1000, 2000, 5000]}'
+
+# 4. Delete a pack size
+curl -X DELETE http://localhost:8080/api/v1/packs/250
+
+# 5. Calculate with default pack sizes
+curl -X POST http://localhost:8080/api/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 500000}'
+
+# 6. Calculate with custom pack sizes
+curl -X POST http://localhost:8080/api/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 500000, "sizes": [23, 31, 53]}'
+
+# 7. Pretty print JSON responses (requires jq)
+curl -s http://localhost:8080/api/v1/packs | jq
+```
 
 ## Algorithm: Dynamic Programming
 

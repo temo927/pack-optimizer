@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,15 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
+	httpad "github.com/temo/pack-optimizer/backend/internal/adapters/http"
 	"github.com/temo/pack-optimizer/backend/internal/platform"
 )
 
 // main initializes and starts the HTTP server.
 // It performs the following steps:
-// 1. Configure structured logging with zerolog
+// 1. Configure structured logging with slog
 // 2. Load configuration from environment variables
 // 3. Create HTTP router with CORS middleware
 // 4. Bootstrap application (connect to DB, Redis, wire dependencies)
@@ -28,9 +28,19 @@ import (
 // 6. Start HTTP server in a goroutine
 // 7. Wait for shutdown signal and perform graceful shutdown
 func main() {
-	// Configure structured logging with console-friendly output
-	zerolog.TimeFieldFormat = time.RFC3339
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	// Configure structured logging with slog
+	// Use JSON handler for production, text handler for development
+	var logger *slog.Logger
+	if os.Getenv("ENVIRONMENT") == "production" {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	} else {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+	}
+	slog.SetDefault(logger)
 
 	// Load configuration from environment variables
 	cfg := platform.LoadConfig()
@@ -38,7 +48,18 @@ func main() {
 	// Create HTTP router
 	r := chi.NewRouter()
 	
-	// Configure CORS middleware to allow frontend access
+	// Setup security middleware (rate limiting, DDoS protection, security headers)
+	// This is part of the HTTP transport layer, so it's configured here
+	httpad.SetupSecurityMiddleware(r, httpad.SecurityConfig{
+		RateLimitEnabled:      cfg.RateLimitEnabled,
+		RateLimitRPM:          cfg.RateLimitRPM,
+		RateLimitBurst:        cfg.RateLimitBurst,
+		DDoSProtectionEnabled: cfg.DDoSProtectionEnabled,
+		MaxRequestSize:        cfg.MaxRequestSize,
+		MaxHeaderSize:         cfg.MaxHeaderSize,
+	})
+	
+	// CORS middleware - allow frontend access
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"}, // Allow all origins (configure for production)
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -59,11 +80,17 @@ func main() {
 	})
 
 	// Bootstrap application: connect to dependencies and wire services
-	app, cleanup := platform.Bootstrap(cfg)
+	app, cleanup := platform.Bootstrap(cfg, logger)
 	defer cleanup(context.Background()) // Ensure cleanup on exit
 
-	// Mount all API routes under /api/v1
-	platform.MountRoutes(r, app)
+	// Create error handler for structured error responses
+	errorHandler := httpad.NewErrorHandler(
+		logger,
+		cfg.Environment == "development",
+	)
+
+	// Mount all API routes under /api/v1 with error handling
+	platform.MountRoutes(r, app, errorHandler)
 
 	// Configure HTTP server with timeouts
 	srv := &http.Server{
@@ -76,9 +103,10 @@ func main() {
 
 	// Start server in a goroutine to allow graceful shutdown handling
 	go func() {
-		log.Info().Str("port", cfg.HTTPPort).Msg("HTTP server starting")
+		logger.Info("HTTP server starting", "port", cfg.HTTPPort)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("server crashed")
+			logger.Error("server crashed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -91,6 +119,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("server shutdown error")
+		logger.Error("server shutdown error", "error", err)
 	}
 }
