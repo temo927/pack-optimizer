@@ -1,0 +1,12 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS pack_sets (
+  version BIGSERIAL PRIMARY KEY,
+  sizes INTEGER[] NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- seed default sizes
+INSERT INTO pack_sets (sizes) VALUES (ARRAY[250,500,1000,2000,5000]::INTEGER[]);
+
+

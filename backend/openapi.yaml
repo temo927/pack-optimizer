@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Pack Optimizer API
+  version: 1.0.0
+paths:
+  /api/v1/packs:
+    get:
+      responses:
+        '200':
+          description: OK
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sizes:
+                  type: array
+                  items: { type: integer }
+      responses:
+        '200':
+          description: OK
+  /api/v1/calculate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: integer }
+                sizes:
+                  type: array
+                  items: { type: integer }
+      responses:
+        '200':
+          description: OK
+
+

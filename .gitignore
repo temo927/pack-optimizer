@@ -1,0 +1,18 @@
+# environment
+.env
+
+# node
+frontend/node_modules
+frontend/dist
+
+# go
+backend/bin
+backend/vendor
+
+# editor/OS
+.DS_Store
+*.swp
+*.idea/
+.vscode/
+
+
