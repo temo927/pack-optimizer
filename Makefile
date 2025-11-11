@@ -1,20 +1,18 @@
 SHELL := /usr/bin/bash
 
-.PHONY: dev up down test build api-compile migrate
+.PHONY: dev up down test itest api-compile
 
 up:
-\tdocker compose up --build
+	docker compose up --build
 
 down:
- \tdocker compose down -v
+	docker compose down -v
 
 test:
- \tcd backend && go test ./...
+	cd backend && go test ./...
 
 itest:
- \tcd backend && go test -tags=integration ./...
+	cd backend && go test -tags=integration ./...
 
 api-compile:
- \tcd backend && go build ./cmd/api
-
-
+	cd backend && go build ./cmd/api
