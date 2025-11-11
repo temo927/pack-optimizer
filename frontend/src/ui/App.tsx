@@ -287,12 +287,6 @@ function PackSizes() {
       e.preventDefault()
       e.stopPropagation()
     }
-    // Prevent deleting the last pack size
-    if (sizes.length <= 1) {
-      setMsg({ kind:'err', text:'At least one pack size must remain' })
-      setTimeout(() => setMsg(null), 3000)
-      return
-    }
     const res = await fetch(`${API}/packs/${val}`, { method: 'DELETE' })
     if (res.ok) { 
       await refresh()

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,6 +24,10 @@ func (r *Repository) GetAllActive() ([]int, error) {
 	var arr []int32
 	err := r.db.QueryRow(context.Background(), q).Scan(&arr)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Return empty array if no rows exist
+			return []int{}, nil
+		}
 		return nil, err
 	}
 	sizes := make([]int, len(arr))
@@ -34,9 +39,7 @@ func (r *Repository) GetAllActive() ([]int, error) {
 }
 
 func (r *Repository) ReplaceActive(sizes []int) ([]int, error) {
-	if len(sizes) == 0 {
-		return nil, errors.New("sizes empty")
-	}
+	// Allow empty arrays - validation happens at API layer
 	// normalize
 	uniq := make(map[int]struct{})
 	for _, s := range sizes {

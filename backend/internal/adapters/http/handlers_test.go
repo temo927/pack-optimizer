@@ -95,7 +95,7 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 	calc := &mockCalculator{}
 	router := NewRouter(svc, calc)
 
-	// Test with empty sizes
+	// Test with empty sizes - should succeed now
 	body := map[string][]int{"sizes": {}}
 	jsonBody, _ := json.Marshal(body)
 
@@ -104,8 +104,8 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400 for empty sizes, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for empty sizes, got %d", w.Code)
 	}
 
 	// Test with size exceeding 10,000
@@ -171,12 +171,37 @@ func TestDeletePack_LastOne(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400 when deleting last pack size, got %d", w.Code)
+	// Should succeed - we now allow deleting all pack sizes
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 when deleting last pack size, got %d", w.Code)
 	}
 
-	if w.Body.String() != "at least one pack size must remain\n" {
-		t.Errorf("Expected error message 'at least one pack size must remain', got %q", w.Body.String())
+	// Verify size was removed
+	sizes, _ := svc.GetActiveSizes(context.Background())
+	if len(sizes) != 0 {
+		t.Errorf("Expected empty sizes after deleting last one, got %v", sizes)
+	}
+}
+
+func TestCalculate_NoPackSizes(t *testing.T) {
+	svc := &mockPacksService{sizes: []int{}}
+	calc := &mockCalculator{}
+	router := NewRouter(svc, calc)
+
+	body := map[string]int{"amount": 100}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 for calculation with no pack sizes, got %d", w.Code)
+	}
+
+	if w.Body.String() != "no pack sizes configured\n" {
+		t.Errorf("Expected error message 'no pack sizes configured', got %q", w.Body.String())
 	}
 }
 

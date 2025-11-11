@@ -58,11 +58,6 @@ func (a *packSvcAdapter) deletePack(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to load sizes", http.StatusInternalServerError)
 		return
 	}
-	// Prevent deleting the last pack size
-	if len(curr) <= 1 {
-		http.Error(w, "at least one pack size must remain", http.StatusBadRequest)
-		return
-	}
 	next := make([]int, 0, len(curr))
 	for _, s := range curr {
 		if s != val {
@@ -92,10 +87,7 @@ func (a *packSvcAdapter) putPacks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	if len(req.Sizes) == 0 {
-		http.Error(w, "sizes required", http.StatusBadRequest)
-		return
-	}
+	// Allow empty arrays - validation happens at calculation time
 	// Validate pack sizes: must be positive and <= 10,000
 	const maxPackSize = 10_000
 	for _, s := range req.Sizes {
@@ -145,6 +137,10 @@ func (a *packSvcAdapter) postCalculate(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failed to load sizes", http.StatusInternalServerError)
 			return
 		}
+	}
+	if len(sizes) == 0 {
+		http.Error(w, "no pack sizes configured", http.StatusBadRequest)
+		return
 	}
 	res, err := a.calc.Compute(r.Context(), req.Amount, sizes)
 	if err != nil {
