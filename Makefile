@@ -1,5 +1,3 @@
-SHELL := /usr/bin/bash
-
 .PHONY: dev up down test itest api-compile
 
 up:
