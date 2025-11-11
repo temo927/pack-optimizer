@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS pack_sets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- seed default sizes
-INSERT INTO pack_sets (sizes) VALUES (ARRAY[250,500,1000,2000,5000]::INTEGER[]);
+-- seed default sizes only if table is empty
+INSERT INTO pack_sets (sizes) 
+SELECT ARRAY[250,500,1000,2000,5000]::INTEGER[]
+WHERE NOT EXISTS (SELECT 1 FROM pack_sets);
 
 

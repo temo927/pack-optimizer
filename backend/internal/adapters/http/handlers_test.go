@@ -248,6 +248,19 @@ func TestCalculate_InvalidAmount(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400 for negative amount, got %d", w.Code)
 	}
+
+	// Test with amount exceeding 1 million
+	body = map[string]int{"amount": 1_000_001}
+	jsonBody, _ = json.Marshal(body)
+
+	req = httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 for amount > 1 million, got %d", w.Code)
+	}
 }
 
 func TestCalculate_WithCustomSizes(t *testing.T) {

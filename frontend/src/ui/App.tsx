@@ -374,19 +374,37 @@ function Calculator() {
   const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [inputFocused, setInputFocused] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const MAX_AMOUNT = 1_000_000
 
   const calc = async () => {
     if (!amount) {
       return
     }
+    const numAmount = parseInt(amount, 10)
+    if (numAmount > MAX_AMOUNT) {
+      setError(`Amount cannot exceed ${MAX_AMOUNT.toLocaleString()} items`)
+      setResult(null)
+      return
+    }
+    setError(null)
     setLoading(true)
     try {
       const res = await fetch(`${API}/calculate`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ amount: parseInt(amount, 10) }) 
+        body: JSON.stringify({ amount: numAmount }) 
       })
+      if (!res.ok) {
+        const txt = await res.text()
+        setError(txt || 'Calculation failed')
+        setResult(null)
+        return
+      }
       setResult(await res.json())
+    } catch (err) {
+      setError('Failed to calculate. Please try again.')
+      setResult(null)
     } finally {
       setLoading(false)
     }
@@ -402,6 +420,16 @@ function Calculator() {
           onChange={e => {
             const val = e.target.value.replace(/[^0-9]/g, '')
             setAmount(val)
+            if (val) {
+              const num = parseInt(val, 10)
+              if (num > MAX_AMOUNT) {
+                setError(`Amount cannot exceed ${MAX_AMOUNT.toLocaleString()} items`)
+              } else {
+                setError(null)
+              }
+            } else {
+              setError(null)
+            }
           }}
           onKeyPress={e => e.key === 'Enter' && calc()}
           onFocus={() => setInputFocused(true)}
@@ -428,6 +456,14 @@ function Calculator() {
           {loading ? 'Calculating...' : 'Calculate'}
         </button>
       </div>
+      {error && (
+        <div style={{
+          ...styles.message,
+          ...styles.messageError
+        }}>
+          {error}
+        </div>
+      )}
       {result && <Result res={result} />}
     </div>
   )

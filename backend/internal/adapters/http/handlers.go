@@ -132,6 +132,11 @@ func (a *packSvcAdapter) postCalculate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "amount must be positive", http.StatusBadRequest)
 		return
 	}
+	const maxAmount = 1_000_000
+	if req.Amount > maxAmount {
+		http.Error(w, "amount cannot exceed 1,000,000 items", http.StatusBadRequest)
+		return
+	}
 	sizes := req.Sizes
 	if len(sizes) == 0 {
 		var err error
