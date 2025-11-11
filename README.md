@@ -425,11 +425,3 @@ make test          # Run all unit tests
 make itest         # Run integration tests (requires Docker)
 make api-compile   # Compile the Go API binary
 ```
-
-## License
-
-This project is part of a technical assessment.
-
-## Contributing
-
-This is a technical assessment project. For questions or issues, please refer to the repository maintainer.
