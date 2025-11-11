@@ -9,14 +9,36 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/temo/pack-optimizer/backend/internal/domain"
 )
+
+// Test helpers to reduce duplication
 
 // newTestErrorHandler creates an error handler for testing.
 func newTestErrorHandler() *ErrorHandler {
 	return NewErrorHandler(slog.Default(), true)
 }
 
+// newTestRouter creates a router with mocked services for testing.
+func newTestRouter(packsSvc domain.PacksService, calc domain.Calculator) chi.Router {
+	return NewRouter(packsSvc, calc, newTestErrorHandler())
+}
+
+// newTestRequest creates an HTTP test request with JSON body.
+func newTestRequest(method, path string, body interface{}) *http.Request {
+	var req *http.Request
+	if body != nil {
+		jsonBody, _ := json.Marshal(body)
+		req = httptest.NewRequest(method, path, bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+	} else {
+		req = httptest.NewRequest(method, path, nil)
+	}
+	return req
+}
+
+// mockPacksService implements domain.PacksService for testing.
 type mockPacksService struct {
 	sizes []int
 	err   error
@@ -37,6 +59,7 @@ func (m *mockPacksService) ReplaceActive(ctx context.Context, sizes []int) ([]in
 	return sizes, nil
 }
 
+// mockCalculator implements domain.Calculator for testing.
 type mockCalculator struct {
 	result domain.CalculationResult
 	err    error
@@ -52,9 +75,9 @@ func (m *mockCalculator) Compute(ctx context.Context, amount int, sizes []int) (
 func TestGetPacks(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500, 1000}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
-	req := httptest.NewRequest("GET", "/packs", nil)
+	req := newTestRequest("GET", "/packs", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -77,13 +100,10 @@ func TestGetPacks(t *testing.T) {
 func TestPutPacks(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	body := map[string][]int{"sizes": {250, 500, 1000}}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("PUT", "/packs", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("PUT", "/packs", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -99,14 +119,11 @@ func TestPutPacks(t *testing.T) {
 func TestPutPacks_InvalidInput(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	// Test with empty sizes - should succeed now
 	body := map[string][]int{"sizes": {}}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("PUT", "/packs", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("PUT", "/packs", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -116,10 +133,7 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 
 	// Test with size exceeding 10,000
 	body = map[string][]int{"sizes": {250, 500, 15000}}
-	jsonBody, _ = json.Marshal(body)
-
-	req = httptest.NewRequest("PUT", "/packs", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req = newTestRequest("PUT", "/packs", body)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -129,10 +143,7 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 
 	// Test with negative size
 	body = map[string][]int{"sizes": {250, -100}}
-	jsonBody, _ = json.Marshal(body)
-
-	req = httptest.NewRequest("PUT", "/packs", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req = newTestRequest("PUT", "/packs", body)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -144,9 +155,9 @@ func TestPutPacks_InvalidInput(t *testing.T) {
 func TestDeletePack(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500, 1000}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
-	req := httptest.NewRequest("DELETE", "/packs/500", nil)
+	req := newTestRequest("DELETE", "/packs/500", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -171,9 +182,9 @@ func TestDeletePack(t *testing.T) {
 func TestDeletePack_LastOne(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
-	req := httptest.NewRequest("DELETE", "/packs/250", nil)
+	req := newTestRequest("DELETE", "/packs/250", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -192,13 +203,10 @@ func TestDeletePack_LastOne(t *testing.T) {
 func TestCalculate_NoPackSizes(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	body := map[string]int{"amount": 100}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("POST", "/calculate", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -233,13 +241,10 @@ func TestCalculate(t *testing.T) {
 			Breakdown:  map[int]int{500: 1},
 		},
 	}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	body := map[string]int{"amount": 263}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("POST", "/calculate", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -263,14 +268,11 @@ func TestCalculate(t *testing.T) {
 func TestCalculate_InvalidAmount(t *testing.T) {
 	svc := &mockPacksService{sizes: []int{250, 500}}
 	calc := &mockCalculator{}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	// Test with zero amount
 	body := map[string]int{"amount": 0}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("POST", "/calculate", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -280,10 +282,7 @@ func TestCalculate_InvalidAmount(t *testing.T) {
 
 	// Test with negative amount
 	body = map[string]int{"amount": -1}
-	jsonBody, _ = json.Marshal(body)
-
-	req = httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req = newTestRequest("POST", "/calculate", body)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -293,10 +292,7 @@ func TestCalculate_InvalidAmount(t *testing.T) {
 
 	// Test with amount exceeding 1 million
 	body = map[string]int{"amount": 1_000_001}
-	jsonBody, _ = json.Marshal(body)
-
-	req = httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req = newTestRequest("POST", "/calculate", body)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -316,16 +312,13 @@ func TestCalculate_WithCustomSizes(t *testing.T) {
 			Breakdown:  map[int]int{23: 2, 31: 7, 53: 9429},
 		},
 	}
-	router := NewRouter(svc, calc, newTestErrorHandler())
+	router := newTestRouter(svc, calc)
 
 	body := map[string]interface{}{
 		"amount": 500000,
 		"sizes":  []int{23, 31, 53},
 	}
-	jsonBody, _ := json.Marshal(body)
-
-	req := httptest.NewRequest("POST", "/calculate", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := newTestRequest("POST", "/calculate", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

@@ -5,7 +5,6 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"context"
 	"sort"
 	"strconv"
 
@@ -13,24 +12,17 @@ import (
 	"github.com/temo/pack-optimizer/backend/internal/domain"
 )
 
-// PacksService defines the interface for pack size management operations.
-// This abstraction allows the HTTP adapter to work with any implementation.
-type PacksService interface {
-	GetActiveSizes(ctx context.Context) ([]int, error)
-	ReplaceActive(ctx context.Context, sizes []int) ([]int, error)
-}
-
 // packSvcAdapter is the HTTP adapter that bridges HTTP requests to domain services.
 // It implements the adapter pattern from hexagonal architecture.
 type packSvcAdapter struct {
-	svc          PacksService      // Service for managing pack sizes
-	calc         domain.Calculator // Service for calculating optimal pack distributions
-	errorHandler *ErrorHandler     // Error handler for structured error responses
+	svc          domain.PacksService // Service for managing pack sizes
+	calc         domain.Calculator   // Service for calculating optimal pack distributions
+	errorHandler *ErrorHandler       // Error handler for structured error responses
 }
 
 // NewRouter creates and configures a new HTTP router with all API endpoints.
 // It sets up routes for pack management and calculation operations.
-func NewRouter(packsSvc PacksService, calc domain.Calculator, errorHandler *ErrorHandler) chi.Router {
+func NewRouter(packsSvc domain.PacksService, calc domain.Calculator, errorHandler *ErrorHandler) chi.Router {
 	r := chi.NewRouter()
 	a := &packSvcAdapter{svc: packsSvc, calc: calc, errorHandler: errorHandler}
 	

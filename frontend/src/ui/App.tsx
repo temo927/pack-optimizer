@@ -16,6 +16,39 @@ import React, { useMemo, useState } from 'react'
 // API base URL - uses environment variable or defaults to localhost
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 
+/**
+ * Parses API error response and returns a user-friendly error message.
+ * Handles both JSON error objects and plain text errors.
+ */
+async function parseErrorResponse(res: Response): Promise<string> {
+  // Clone response so we can read it multiple times if needed
+  const clonedRes = res.clone()
+  
+  try {
+    const errorData = await res.json()
+    // Use message from API error, or construct from details
+    if (errorData.message) {
+      let message = errorData.message
+      // Add details if available for better context
+      if (errorData.details && errorData.details.reason) {
+        message += `: ${errorData.details.reason}`
+      }
+      return message
+    } else if (errorData.error) {
+      return errorData.error
+    }
+    return 'An error occurred'
+  } catch {
+    // If JSON parsing fails, try text from cloned response
+    try {
+      const txt = await clonedRes.text()
+      return txt || 'An error occurred'
+    } catch {
+      return 'An error occurred'
+    }
+  }
+}
+
 const styles = {
   app: {
     minHeight: '100vh',
@@ -317,8 +350,8 @@ function PackSizes() {
       setMsg({ kind:'ok', text:`✓ Added pack size ${val}` })
       setTimeout(() => setMsg(null), 3000)
     } else {
-      const txt = await res.text()
-      setMsg({ kind:'err', text:txt || 'Failed to add size' })
+      const errorMsg = await parseErrorResponse(res)
+      setMsg({ kind:'err', text:errorMsg || 'Failed to add size' })
       setTimeout(() => setMsg(null), 3000)
     }
     setEditing('')
@@ -343,8 +376,8 @@ function PackSizes() {
       setMsg({ kind:'ok', text:`✓ Removed pack size ${val}` })
       setTimeout(() => setMsg(null), 3000)
     } else {
-      const txt = await res.text()
-      setMsg({ kind:'err', text:txt || 'Failed to remove pack size' })
+      const errorMsg = await parseErrorResponse(res)
+      setMsg({ kind:'err', text:errorMsg || 'Failed to remove pack size' })
       setTimeout(() => setMsg(null), 3000)
     }
   }
@@ -454,8 +487,8 @@ function Calculator() {
         body: JSON.stringify({ amount: numAmount }) 
       })
       if (!res.ok) {
-        const txt = await res.text()
-        setError(txt || 'Calculation failed')
+        const errorMessage = await parseErrorResponse(res)
+        setError(errorMessage || 'Calculation failed')
         setResult(null)
         return
       }

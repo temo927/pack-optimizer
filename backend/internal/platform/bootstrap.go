@@ -19,15 +19,8 @@ import (
 
 // App represents the fully configured application with all its dependencies.
 type App struct {
-	PacksSvc packsServiceFacade // Service for managing pack sizes (with caching)
-	Calc     domain.Calculator  // Service for calculating optimal pack distributions
-}
-
-// packsServiceFacade defines the minimal interface needed by HTTP handlers.
-// This follows the Interface Segregation Principle - handlers only see what they need.
-type packsServiceFacade interface {
-	GetActiveSizes(ctx context.Context) ([]int, error)
-	ReplaceActive(ctx context.Context, sizes []int) ([]int, error)
+	PacksSvc domain.PacksService // Service for managing pack sizes (with caching)
+	Calc     domain.Calculator   // Service for calculating optimal pack distributions
 }
 
 // Bootstrap initializes the application by:

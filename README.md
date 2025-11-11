@@ -119,21 +119,6 @@ If you get `getcwd: Operation not permitted` or `No rule to make target 'up'` er
    ```bash
    docker compose up --build
    ```
-
-2. **Grant Full Disk Access to Terminal (macOS only):**
-   - Go to System Settings → Privacy & Security → Full Disk Access
-   - Add Terminal (or iTerm2 if using it)
-   - Restart Terminal
-
-3. **Check directory permissions:**
-   ```bash
-   ls -la
-   ```
-   Ensure you have read/write permissions in the directory.
-
-4. **Move project if in restricted location:**
-   If the project is in Downloads or Desktop, try moving it to `~/projects/` or `/usr/local/`
-
 #### Container Issues
 
 If the API endpoint is not accessible when running in containers:

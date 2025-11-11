@@ -5,12 +5,6 @@ package domain
 
 import "context"
 
-// CalculationRequest represents a request to calculate optimal pack distribution.
-type CalculationRequest struct {
-	Amount int   `json:"amount"`           // Number of items to fulfill
-	Sizes  []int `json:"sizes,omitempty"`  // Optional custom pack sizes
-}
-
 // CalculationResult represents the result of a pack calculation.
 type CalculationResult struct {
 	Amount     int         `json:"amount"`     // Original requested amount
@@ -52,6 +46,17 @@ type Cache interface {
 	// DeleteByPrefix removes all keys matching the given prefix.
 	// Used for cache invalidation when data changes.
 	DeleteByPrefix(prefix string) error
+}
+
+// PacksService is the port for pack size management operations.
+// This defines the application service interface for managing pack sizes.
+// This abstraction allows adapters to work with any implementation.
+type PacksService interface {
+	// GetActiveSizes returns the current active pack sizes.
+	GetActiveSizes(ctx context.Context) ([]int, error)
+	
+	// ReplaceActive replaces all pack sizes with a new set.
+	ReplaceActive(ctx context.Context, sizes []int) ([]int, error)
 }
 
 // Calculator is the port for pack calculation operations.
