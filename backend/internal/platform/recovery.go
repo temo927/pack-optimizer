@@ -20,16 +20,6 @@ type RetryConfig struct {
 	BackoffMultiplier float64       // Multiplier for exponential backoff
 }
 
-// DefaultRetryConfig returns a default retry configuration.
-func DefaultRetryConfig() RetryConfig {
-	return RetryConfig{
-		MaxAttempts:       5,
-		InitialDelay:      100 * time.Millisecond,
-		MaxDelay:          5 * time.Second,
-		BackoffMultiplier: 2.0,
-	}
-}
-
 // RetryWithBackoff executes a function with exponential backoff retry logic.
 // Returns the result of the function or an error if all retries are exhausted.
 func RetryWithBackoff(ctx context.Context, logger *slog.Logger, config RetryConfig, fn func() error) error {
