@@ -98,7 +98,7 @@ The database will automatically:
 
 ### Running Tests
 
-Run unit and integration tests:
+#### Running Tests Locally (requires Go installed)
 
 ```bash
 # Run all unit tests
@@ -106,6 +106,22 @@ make test
 
 # Run integration tests
 make itest
+```
+
+#### Running Tests Inside Docker
+
+The API container includes Go and the source code, so you can run tests directly inside the container:
+
+```bash
+# Run all unit tests inside Docker
+make test-docker
+
+# Run integration tests inside Docker
+make itest-docker
+
+# Or use docker compose directly
+docker compose exec api go test -short ./...
+docker compose exec api go test -v -tags=integration ./...
 ```
 
 ### Troubleshooting
@@ -378,7 +394,9 @@ This demonstrates the algorithm correctly handles large amounts and non-standard
 ```bash
 make up            # Start all services with Docker Compose
 make down          # Stop services and remove volumes
-make test          # Run all unit tests
-make itest         # Run integration tests
+make test          # Run all unit tests (requires Go installed locally)
+make itest         # Run integration tests (requires Go installed locally)
+make test-docker   # Run all unit tests inside Docker container
+make itest-docker  # Run integration tests inside Docker container
 make api-compile   # Compile the Go API binary
 ```

@@ -5,11 +5,13 @@ SHELL := /bin/bash
 
 help:
 	@echo "Available targets:"
-	@echo "  make up          - Start all services with Docker Compose"
-	@echo "  make down        - Stop services and remove volumes"
-	@echo "  make test        - Run all unit tests"
-	@echo "  make itest       - Run integration tests"
-	@echo "  make api-compile - Compile the Go API binary"
+	@echo "  make up           - Start all services with Docker Compose"
+	@echo "  make down         - Stop services and remove volumes"
+	@echo "  make test         - Run all unit tests (requires Go installed locally)"
+	@echo "  make itest        - Run integration tests (requires Go installed locally)"
+	@echo "  make test-docker  - Run all unit tests inside Docker container"
+	@echo "  make itest-docker - Run integration tests inside Docker container"
+	@echo "  make api-compile  - Compile the Go API binary"
 
 up:
 	docker compose up --build
@@ -22,6 +24,12 @@ test:
 
 itest:
 	cd backend && go test -v -tags=integration ./...
+
+test-docker:
+	docker compose exec api go test -v -short ./...
+
+itest-docker:
+	docker compose exec api go test -v -tags=integration ./...
 
 api-compile:
 	cd backend && go build ./cmd/api
