@@ -80,6 +80,9 @@ The application includes production-ready security middleware:
 git clone <repository-url>
 cd pack-optimizer
 
+# Copy environment file
+cp env.example .env
+
 # Start all services
 docker compose up --build
 
