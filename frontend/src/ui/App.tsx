@@ -12,6 +12,7 @@
  */
 
 import React, { useMemo, useState } from 'react'
+import './App.css'
 
 // API base URL - uses environment variable or defaults to localhost
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
@@ -55,10 +56,13 @@ const styles = {
     background: 'linear-gradient(135deg, #2C3E50 0%, #4A5568 100%)',
     padding: '2rem 1rem',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    boxSizing: 'border-box' as const,
   },
   container: {
     maxWidth: 900,
     margin: '0 auto',
+    width: '100%',
+    boxSizing: 'border-box' as const,
   },
   header: {
     textAlign: 'center' as const,
@@ -66,14 +70,14 @@ const styles = {
     marginBottom: '2.5rem',
   },
   title: {
-    fontSize: '2.5rem',
+    fontSize: 'clamp(1.75rem, 5vw, 2.5rem)',
     fontWeight: 700,
     margin: 0,
     textShadow: '0 2px 10px rgba(0,0,0,0.2)',
     letterSpacing: '-0.02em',
   },
   subtitle: {
-    fontSize: '1.1rem',
+    fontSize: 'clamp(0.95rem, 2.5vw, 1.1rem)',
     opacity: 0.9,
     marginTop: '0.5rem',
     fontWeight: 400,
@@ -81,17 +85,19 @@ const styles = {
   card: {
     background: '#ffffff',
     borderRadius: 16,
-    padding: '2rem',
+    padding: 'clamp(1.25rem, 4vw, 2rem)',
     marginBottom: '1.5rem',
     boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
     transition: 'transform 0.2s, box-shadow 0.2s',
+    width: '100%',
+    boxSizing: 'border-box' as const,
   },
   cardHover: {
     transform: 'translateY(-2px)',
     boxShadow: '0 15px 50px rgba(0,0,0,0.2)',
   },
   sectionTitle: {
-    fontSize: '1.5rem',
+    fontSize: 'clamp(1.25rem, 3.5vw, 1.5rem)',
     fontWeight: 600,
     color: '#2d3748',
     margin: '0 0 1rem 0',
@@ -130,8 +136,10 @@ const styles = {
     color: '#ffffff',
     cursor: 'pointer',
     borderRadius: '50%',
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
+    minWidth: 24,
+    minHeight: 24,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -139,6 +147,7 @@ const styles = {
     lineHeight: 1,
     padding: 0,
     transition: 'background 0.2s',
+    touchAction: 'manipulation' as const,
   },
   deleteBtnHover: {
     background: 'rgba(255,255,255,0.4)',
@@ -147,9 +156,11 @@ const styles = {
     display: 'flex',
     gap: '0.75rem',
     marginBottom: '1rem',
+    flexWrap: 'wrap' as const,
   },
   input: {
-    flex: 1,
+    flex: '1 1 200px',
+    minWidth: '150px',
     padding: '0.875rem 1rem',
     fontSize: '1rem',
     border: '2px solid #e2e8f0',
@@ -157,6 +168,7 @@ const styles = {
     outline: 'none',
     transition: 'border-color 0.2s, box-shadow 0.2s',
     fontFamily: 'inherit',
+    boxSizing: 'border-box' as const,
   },
   inputFocus: {
     borderColor: '#2C3E50',
@@ -172,6 +184,8 @@ const styles = {
     transition: 'all 0.2s',
     fontFamily: 'inherit',
     whiteSpace: 'nowrap' as const,
+    minHeight: '44px',
+    boxSizing: 'border-box' as const,
   },
   btnPrimary: {
     background: 'linear-gradient(135deg, #2C3E50 0%, #4A5568 100%)',
@@ -217,13 +231,15 @@ const styles = {
   },
   resultStats: {
     display: 'flex',
-    gap: '2rem',
+    gap: 'clamp(1rem, 4vw, 2rem)',
     marginBottom: '1.5rem',
     flexWrap: 'wrap' as const,
   },
   stat: {
     display: 'flex',
     flexDirection: 'column' as const,
+    flex: '1 1 auto',
+    minWidth: '100px',
   },
   statLabel: {
     fontSize: '0.85rem',
@@ -232,7 +248,7 @@ const styles = {
     marginBottom: '0.25rem',
   },
   statValue: {
-    fontSize: '1.5rem',
+    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
     fontWeight: 700,
     color: '#2d3748',
   },
@@ -244,6 +260,12 @@ const styles = {
     borderRadius: 8,
     overflow: 'hidden',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    minWidth: '250px',
+  },
+  tableContainer: {
+    overflowX: 'auto' as const,
+    WebkitOverflowScrolling: 'touch' as const,
+    marginTop: '1rem',
   },
   tableHeader: {
     background: 'linear-gradient(135deg, #2C3E50 0%, #4A5568 100%)',
@@ -274,11 +296,11 @@ const styles = {
  */
 export default function App() {
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="app-container">
       <div style={styles.container}>
-        <header style={styles.header}>
-          <h1 style={styles.title}>📦 Pack Optimizer</h1>
-          <p style={styles.subtitle}>Calculate optimal pack combinations for your orders</p>
+        <header style={styles.header} className="header">
+          <h1 style={styles.title} className="app-title">📦 Pack Optimizer</h1>
+          <p style={styles.subtitle} className="app-subtitle">Calculate optimal pack combinations for your orders</p>
         </header>
         <PackSizes />
         <Calculator />
@@ -383,8 +405,8 @@ function PackSizes() {
   }
 
   return (
-    <div style={styles.card}>
-      <h2 style={styles.sectionTitle}>Pack Sizes</h2>
+    <div style={styles.card} className="card">
+      <h2 style={styles.sectionTitle} className="section-title">Pack Sizes</h2>
       <p style={styles.sectionText}>Manage available pack sizes. Current sizes:</p>
       {sizes.length > 0 && (
         <div style={styles.chipsContainer}>
@@ -397,6 +419,7 @@ function PackSizes() {
               }}
               onMouseEnter={() => setHoverChip(s)}
               onMouseLeave={() => setHoverChip(null)}
+              className="chip"
             >
               {s} items
               <button 
@@ -409,6 +432,7 @@ function PackSizes() {
                 }}
                 onMouseEnter={() => setHoverDelete(s)}
                 onMouseLeave={() => setHoverDelete(null)}
+                className="delete-btn"
               >
                 ×
               </button>
@@ -416,7 +440,7 @@ function PackSizes() {
           ))}
         </div>
       )}
-      <div style={styles.inputGroup}>
+      <div style={styles.inputGroup} className="input-group">
         <input
           value={editing}
           onChange={e => setEditing(e.target.value.replace(/[^0-9]/g, ''))}
@@ -428,6 +452,7 @@ function PackSizes() {
         <button 
           onClick={addOne}
           style={{...styles.btn, ...styles.btnPrimary}}
+          className="btn btn-primary"
           onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
         >
@@ -502,10 +527,10 @@ function Calculator() {
   }
 
   return (
-    <div style={styles.card}>
-      <h2 style={styles.sectionTitle}>Calculate Packs</h2>
+    <div style={styles.card} className="card">
+      <h2 style={styles.sectionTitle} className="section-title">Calculate Packs</h2>
       <p style={styles.sectionText}>Enter the number of items to calculate optimal pack distribution</p>
-      <div style={styles.inputGroup}>
+      <div style={styles.inputGroup} className="input-group">
         <input
           value={amount}
           onChange={e => {
@@ -541,6 +566,7 @@ function Calculator() {
             opacity: (loading || !amount) ? 0.6 : 1,
             cursor: (loading || !amount) ? 'not-allowed' : 'pointer'
           }}
+          className="btn btn-primary"
           onMouseEnter={e => !loading && amount && (e.currentTarget.style.transform = 'translateY(-2px)')}
           onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
         >
@@ -577,45 +603,47 @@ function Result({ res }:{ res:any }) {
   
   return (
     <div style={styles.resultCard}>
-      <div style={styles.resultStats}>
-        <div style={styles.stat}>
+      <div style={styles.resultStats} className="result-stats">
+        <div style={styles.stat} className="stat">
           <div style={styles.statLabel}>Total Items</div>
-          <div style={styles.statValue}>{res.totalItems.toLocaleString()}</div>
+          <div style={styles.statValue} className="stat-value">{res.totalItems.toLocaleString()}</div>
         </div>
-        <div style={styles.stat}>
+        <div style={styles.stat} className="stat">
           <div style={styles.statLabel}>Overage</div>
-          <div style={styles.statValue}>{res.overage.toLocaleString()}</div>
+          <div style={styles.statValue} className="stat-value">{res.overage.toLocaleString()}</div>
         </div>
-        <div style={styles.stat}>
+        <div style={styles.stat} className="stat">
           <div style={styles.statLabel}>Total Packs</div>
-          <div style={styles.statValue}>{res.totalPacks}</div>
+          <div style={styles.statValue} className="stat-value">{res.totalPacks}</div>
         </div>
       </div>
       {entries.length > 0 && (
-        <table style={styles.table}>
-          <thead style={styles.tableHeader}>
-            <tr>
-              <th style={styles.tableHeaderCell}>Pack Size</th>
-              <th style={styles.tableHeaderCell}>Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(([k,v]) => (
-              <tr 
-                key={k}
-                style={{
-                  ...styles.tableRow,
-                  ...(hoverRow === k ? styles.tableRowHover : {})
-                }}
-                onMouseEnter={() => setHoverRow(k)}
-                onMouseLeave={() => setHoverRow(null)}
-              >
-                <td style={styles.tableCell}>{k} items</td>
-                <td style={styles.tableCell}><strong>{v as any}</strong></td>
+        <div style={styles.tableContainer} className="table-container">
+          <table style={styles.table} className="table">
+            <thead style={styles.tableHeader}>
+              <tr>
+                <th style={styles.tableHeaderCell} className="table-header-cell">Pack Size</th>
+                <th style={styles.tableHeaderCell} className="table-header-cell">Quantity</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {entries.map(([k,v]) => (
+                <tr 
+                  key={k}
+                  style={{
+                    ...styles.tableRow,
+                    ...(hoverRow === k ? styles.tableRowHover : {})
+                  }}
+                  onMouseEnter={() => setHoverRow(k)}
+                  onMouseLeave={() => setHoverRow(null)}
+                >
+                  <td style={styles.tableCell} className="table-cell">{k} items</td>
+                  <td style={styles.tableCell} className="table-cell"><strong>{v as any}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

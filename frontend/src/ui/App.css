@@ -1,0 +1,155 @@
+/* Responsive styles for Pack Optimizer */
+
+/* Global base styles for better mobile experience */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Mobile-first: Base styles are for mobile, then scale up */
+
+/* Small devices (phones, 600px and down) */
+@media (max-width: 600px) {
+  .app-container {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .app-title {
+    font-size: 1.75rem !important;
+  }
+
+  .app-subtitle {
+    font-size: 0.95rem !important;
+  }
+
+  .card {
+    padding: 1.25rem !important;
+    margin-bottom: 1rem !important;
+    border-radius: 12px !important;
+  }
+
+  .section-title {
+    font-size: 1.25rem !important;
+  }
+
+  .input-group {
+    flex-direction: column !important;
+  }
+
+  .input-group input {
+    width: 100% !important;
+    margin-bottom: 0.75rem;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+
+  .input-group .btn {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+
+  .result-stats {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  .stat {
+    width: 100%;
+  }
+
+  .stat-value {
+    font-size: 1.25rem !important;
+  }
+
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 100%;
+    font-size: 0.875rem;
+  }
+
+  .table-header-cell,
+  .table-cell {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .chip {
+    font-size: 0.85rem !important;
+    padding: 0.4rem 0.75rem !important;
+  }
+}
+
+/* Medium devices (tablets, 600px to 768px) */
+@media (min-width: 601px) and (max-width: 768px) {
+  .app-container {
+    padding: 1.5rem 1rem !important;
+  }
+
+  .app-title {
+    font-size: 2rem !important;
+  }
+
+  .card {
+    padding: 1.5rem !important;
+  }
+
+  .input-group {
+    gap: 0.5rem !important;
+  }
+
+  .input-group button {
+    min-width: 120px;
+  }
+}
+
+/* Large devices (desktops, 769px and up) */
+@media (min-width: 769px) {
+  /* Default styles - already defined in component */
+}
+
+/* Touch-friendly improvements for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  .chip,
+  .delete-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .delete-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 1.4rem !important;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+  .app-container {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .app-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .app-subtitle {
+    font-size: 0.9rem !important;
+  }
+
+  .header {
+    margin-bottom: 1.5rem !important;
+  }
+}
+
