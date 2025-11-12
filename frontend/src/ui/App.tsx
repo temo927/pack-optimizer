@@ -14,8 +14,22 @@
 import React, { useMemo, useState } from 'react'
 import './App.css'
 
-// API base URL - uses environment variable or defaults to localhost
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
+// API base URL - uses relative URL for automatic proxying
+// - Development: Vite dev server proxies /api to http://localhost:8080
+// - Production (Docker): nginx proxies /api to backend service
+// - Can be overridden with VITE_API_URL environment variable
+function getApiUrl() {
+  // If VITE_API_URL is explicitly set at build time, use it (for overrides)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Always use relative URL - proxy handles routing
+  // This works for both local development and server deployment
+  return '/api/v1'
+}
+
+const API = getApiUrl()
 
 /**
  * Parses API error response and returns a user-friendly error message.
